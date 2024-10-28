@@ -2,6 +2,10 @@
 pub enum Token {
     Identifier(String),
     Number(i64),
+    Hash,
+    LessThan,
+    BiggerThan,
+    Dot,
     Plus,
     Minus,
     Multiply,
@@ -59,6 +63,22 @@ impl<'a> Lexer<'a> {
         while let Some(ch) = self.current_char {
             match ch {
                 '0'..='9' => return Token::Number(self.integer()),
+                '#' => {
+                    self.current_char = self.next_char();
+                    return Token::Hash;
+                }
+                '<' => {
+                    self.current_char = self.next_char();
+                    return Token::LessThan;
+                }
+                '>' => {
+                    self.current_char = self.next_char();
+                    return Token::BiggerThan;
+                }
+                '.' => {
+                    self.current_char = self.next_char();
+                    return Token::Dot;
+                }
                 '+' => {
                     self.current_char = self.next_char();
                     return Token::Plus;
@@ -149,6 +169,7 @@ impl<'a> Lexer<'a> {
 
 fn main() {
     let input = "
+    #include <stdio.h>
     int main() {
     int a = 0;
     int b = 0;
