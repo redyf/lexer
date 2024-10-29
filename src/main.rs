@@ -1,3 +1,7 @@
+use std::env;
+use std::fs;
+use std::path::Path;
+
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Identifier(String),
@@ -168,16 +172,13 @@ impl<'a> Lexer<'a> {
 }
 
 fn main() {
-    let input = "
-    #include <stdio.h>
-    int main() {
-    int a = 0;
-    int b = 0;
-    int sum = a + b;
-    return sum
-    return 0;
-}";
-    let mut lexer = Lexer::new(input);
+    let args: Vec<String> = env::args().collect();
+
+    let file_path = &args[1];
+    let path = Path::new(&file_path);
+    let input = fs::read_to_string(path).expect("Could not read file");
+
+    let mut lexer = Lexer::new(&input);
 
     loop {
         let token = lexer.next_token();
