@@ -20,10 +20,29 @@ pub enum Token {
     RightBrace,
     LeftParen,
     RightParen,
+    EOF, // End of File
+
+    // palavras-chaves
     If,
     Else,
     Return,
-    EOF, // End of File
+    Do,
+    While,
+    For,
+    Switch,
+    Case,
+    Break,
+    Continue,
+    Enum,
+    Struct,
+    Typedef,
+    Int,
+    Long,
+    Short,
+    Char,
+    Float,
+    Double,
+    Void,
 }
 
 pub struct Lexer<'a> {
@@ -60,6 +79,32 @@ impl<'a> Lexer<'a> {
             } else {
                 break;
             }
+        }
+    }
+
+    fn keyword(&mut self, word: &str) -> Option<Token> {
+        match word {
+            "if" => Some(Token::If),
+            "else" => Some(Token::Else),
+            "return" => Some(Token::Return),
+            "do" => Some(Token::Do),
+            "while" => Some(Token::While),
+            "for" => Some(Token::For),
+            "switch" => Some(Token::Switch),
+            "case" => Some(Token::Case),
+            "break" => Some(Token::Break),
+            "continue" => Some(Token::Continue),
+            "enum" => Some(Token::Enum),
+            "struct" => Some(Token::Struct),
+            "typedef" => Some(Token::Typedef),
+            "int" => Some(Token::Int),
+            "long" => Some(Token::Long),
+            "short" => Some(Token::Short),
+            "char" => Some(Token::Char),
+            "float" => Some(Token::Float),
+            "double" => Some(Token::Double),
+            "void" => Some(Token::Void),
+            _ => None,
         }
     }
 
@@ -130,11 +175,11 @@ impl<'a> Lexer<'a> {
                     } else if ch.is_alphabetic() || ch == '_' {
                         // Identificadores e palavras-chave
                         let ident = self.identifier();
-                        match ident.as_str() {
-                            "if" => return Token::If,
-                            "else" => return Token::Else,
-                            "return" => return Token::Return,
-                            _ => return Token::Identifier(ident),
+
+                        let kw = self.keyword(ident.as_str());
+                        match kw {
+                            Some(kw) => return kw,
+                            None => return Token::Identifier(ident),
                         }
                     } else {
                         panic!("Unexpected character: {}", ch);
