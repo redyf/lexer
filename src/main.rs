@@ -63,6 +63,15 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn keyword(&mut self, word: &str) -> Option<Token> {
+        match word {
+            "if" => Some(Token::If),
+            "else" => Some(Token::Else),
+            "return" => Some(Token::Return),
+            _ => None,
+        }
+    }
+
     pub fn next_token(&mut self) -> Token {
         while let Some(ch) = self.current_char {
             match ch {
@@ -130,11 +139,11 @@ impl<'a> Lexer<'a> {
                     } else if ch.is_alphabetic() || ch == '_' {
                         // Identificadores e palavras-chave
                         let ident = self.identifier();
-                        match ident.as_str() {
-                            "if" => return Token::If,
-                            "else" => return Token::Else,
-                            "return" => return Token::Return,
-                            _ => return Token::Identifier(ident),
+
+                        let kw = self.keyword(ident.as_str());
+                        match kw {
+                            Some(kw) => return kw,
+                            None => return Token::Identifier(ident),
                         }
                     } else {
                         panic!("Unexpected character: {}", ch);
