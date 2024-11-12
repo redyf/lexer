@@ -14,9 +14,20 @@ pub enum Token {
     Plus,
     Minus,
     Multiply,
-    Divide,
+    Slash,
+    BackwardSlash,
+    Pipe,
     Equal,
+    Colon,
     Semicolon,
+    Comma,
+    Percent,
+    SingleQuotationMark,
+    DoubleQuotationMark,
+    Ampersand,
+    Exclamation,
+    LeftBracket,
+    RightBracket,
     LeftBrace,
     RightBrace,
     LeftParen,
@@ -165,11 +176,55 @@ impl<'a> Lexer<'a> {
                 }
                 '/' => {
                     self.current_char = self.next_char();
-                    return Token::Divide;
+                    return Token::Slash;
+                }
+                '\\' => {
+                    self.current_char = self.next_char();
+                    return Token::BackwardSlash;
+                }
+                '|' => {
+                    self.current_char = self.next_char();
+                    return Token::Pipe;
+                }
+                ':' => {
+                    self.current_char = self.next_char();
+                    return Token::Colon;
                 }
                 ';' => {
                     self.current_char = self.next_char();
                     return Token::Semicolon;
+                }
+                ',' => {
+                    self.current_char = self.next_char();
+                    return Token::Comma;
+                }
+                '%' => {
+                    self.current_char = self.next_char();
+                    return Token::Percent;
+                }
+                '\'' => {
+                    self.current_char = self.next_char();
+                    return Token::SingleQuotationMark;
+                }
+                '\"' => {
+                    self.current_char = self.next_char();
+                    return Token::DoubleQuotationMark;
+                }
+                '&' => {
+                    self.current_char = self.next_char();
+                    return Token::Ampersand;
+                }
+                '!' => {
+                    self.current_char = self.next_char();
+                    return Token::Exclamation;
+                }
+                '[' => {
+                    self.current_char = self.next_char();
+                    return Token::LeftBracket;
+                }
+                ']' => {
+                    self.current_char = self.next_char();
+                    return Token::RightBracket;
                 }
                 '{' => {
                     self.current_char = self.next_char();
@@ -240,6 +295,11 @@ impl<'a> Lexer<'a> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        eprintln!("Usage: {} <file_path>", args[0]);
+        std::process::exit(1);
+    }
 
     let file_path = &args[1];
     let path = Path::new(&file_path);
