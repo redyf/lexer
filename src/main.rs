@@ -34,6 +34,18 @@ pub enum Token {
     EOF, // End of File
 
     // palavras-chaves
+    Auto,
+    Const,
+    Default,
+    Extern,
+    Goto,
+    Register,
+    Signed,
+    Sizeof,
+    Static,
+    Union,
+    Unsigned,
+    Volatile,
     If,
     Else,
     Return,
@@ -95,6 +107,18 @@ impl Lexer {
 
     fn keyword(&mut self, word: &str) -> Option<Token> {
         match word {
+            "auto" => Some(Token::Auto),
+            "const" => Some(Token::Const),
+            "default" => Some(Token::Default),
+            "extern" => Some(Token::Extern),
+            "goto" => Some(Token::Goto),
+            "register" => Some(Token::Register),
+            "signed" => Some(Token::Signed),
+            "sizeof" => Some(Token::Sizeof),
+            "static" => Some(Token::Static),
+            "union" => Some(Token::Union),
+            "unsigned" => Some(Token::Unsigned),
+            "volatile" => Some(Token::Volatile),
             "if" => Some(Token::If),
             "else" => Some(Token::Else),
             "return" => Some(Token::Return),
