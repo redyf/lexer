@@ -56,14 +56,14 @@ pub enum Token {
     Void,
 }
 
-pub struct Lexer<'a> {
-    input: &'a str,
+pub struct Lexer {
+    input: String,
     position: usize,
     current_char: Option<char>,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+impl Lexer {
+    pub fn new(input: String) -> Self {
         let mut lexer = Lexer {
             input,
             position: 0,
@@ -187,7 +187,7 @@ impl<'a> Lexer<'a> {
                     self.current_char = self.next_char();
                     return Token::SingleQuotationMark;
                 }
-                '\"' => {
+                '"' => {
                     self.current_char = self.next_char();
                     return Token::DoubleQuotationMark;
                 }
@@ -223,43 +223,44 @@ impl<'a> Lexer<'a> {
                     self.current_char = self.next_char();
                     return Token::RightParen;
                 }
-                _ => {
-                    if ch.is_whitespace() {
-                        self.skip_whitespace();
-                        continue;
-                    } else if ch.is_alphabetic() || ch == '_' {
-                        // Identificadores e palavras-chave
-                        let ident = self.identifier();
 
-                        let kw = self.keyword(ident.as_str());
-                        match kw {
-                            Some(kw) => return kw,
-                            None => return Token::Identifier(ident),
-                        }
+                _ if ch.is_whitespace() => {
+                    self.skip_whitespace();
+                    continue;
+                }
+
+                _ if ch.is_alphabetic() || ch == '_' => {
+                    let ident = self.identifier();
+                    if let Some(keyword_token) = self.keyword(ident.as_str()) {
+                        return keyword_token;
                     } else {
-                        panic!("Unexpected character: {}", ch);
+                        return Token::Identifier(ident);
                     }
                 }
+
+                _ => panic!("Unexpected character: {}", ch),
             }
         }
+
         Token::EOF // Retorna EOF quando não há mais caracteres
     }
 
     fn integer(&mut self) -> i64 {
-        let start_pos = self.position - 1; // Posição atual é o próximo caractere
-        while let Some(ch) = self.current_char {
+        let start_pos = self.position - 1;
+        while let Some(ch) = &self.current_char {
             if ch.is_digit(10) {
                 self.current_char = self.next_char();
             } else {
                 break;
             }
         }
+
         let num_str = &self.input[start_pos..self.position - 1];
         num_str.parse::<i64>().unwrap()
     }
 
     fn identifier(&mut self) -> String {
-        let start_pos = self.position - 1; // Posição atual é o próximo caractere
+        let start_pos = self.position - 1;
         while let Some(ch) = self.current_char {
             if ch.is_alphanumeric() || ch == '_' {
                 self.current_char = self.next_char();
@@ -267,6 +268,7 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
+
         String::from(&self.input[start_pos..self.position - 1])
     }
 }
@@ -280,14 +282,18 @@ fn main() {
     }
 
     let file_path = &args[1];
-    let path = Path::new(&file_path);
+
+    let path = Path::new(file_path);
+
     let input = fs::read_to_string(path).expect("Could not read file");
 
-    let mut lexer = Lexer::new(&input);
+    let mut lexer = Lexer::new(input); // Passa o ownership do String
 
     loop {
         let token = lexer.next_token();
+
         println!("{:?}", token);
+
         if token == Token::EOF {
             break;
         }
