@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Identifier(String),
     Number(i64),
@@ -33,7 +34,7 @@ pub enum Token {
     RightParen,
     EOF, // End of File
 
-    // palavras-chaves
+    // Palavras Chave
     Auto,
     Const,
     Default,
@@ -68,10 +69,29 @@ pub enum Token {
     Void,
 }
 
+#[derive(Default)]
+pub struct SymbolTable {
+    symbols: HashMap<String, Token>,
+}
+
+impl SymbolTable {
+    fn add(&mut self, identifier: String, token: Token) {
+        self.symbols.entry(identifier).or_insert(token);
+    }
+
+    fn display(&self) {
+        for (idx, (name, token)) in self.symbols.iter().enumerate() {
+            println!("ID, {:02} | {}: {:?}", idx + 1, name, token);
+        }
+    }
+}
+
 pub struct Lexer {
     input: String,
     position: usize,
     current_char: Option<char>,
+    line_number: usize,
+    symbol_table: SymbolTable,
 }
 
 impl Lexer {
@@ -80,6 +100,8 @@ impl Lexer {
             input,
             position: 0,
             current_char: None,
+            line_number: 1,
+            symbol_table: SymbolTable::default(),
         };
         lexer.current_char = lexer.next_char(); // Inicializa o primeiro caractere
         lexer
@@ -98,6 +120,9 @@ impl Lexer {
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char {
             if ch.is_whitespace() {
+                if ch == '\n' {
+                    self.line_number += 1;
+                }
                 self.current_char = self.next_char();
             } else {
                 break;
@@ -255,11 +280,13 @@ impl Lexer {
 
                 _ if ch.is_alphabetic() || ch == '_' => {
                     let ident = self.identifier();
-                    if let Some(keyword_token) = self.keyword(ident.as_str()) {
-                        return keyword_token;
+                    let token = if let Some(keyword_token) = self.keyword(ident.as_str()) {
+                        keyword_token
                     } else {
-                        return Token::Identifier(ident);
-                    }
+                        Token::Identifier(ident.clone())
+                    };
+                    self.symbol_table.add(ident, token.clone());
+                    return token;
                 }
 
                 _ => panic!("Unexpected character: {}", ch),
@@ -322,4 +349,8 @@ fn main() {
             break;
         }
     }
+
+    // Display the symbol table
+    println!("\nSymbol Table:");
+    lexer.symbol_table.display();
 }
