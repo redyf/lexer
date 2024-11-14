@@ -94,6 +94,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn seek_offset(&self, offset: usize) -> Option<char> {
+        self.input.chars().nth(self.position + offset - 1)
+    }
+
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char {
             if ch.is_whitespace() {
@@ -166,6 +170,12 @@ impl<'a> Lexer<'a> {
                     return Token::Multiply;
                 }
                 '/' => {
+                    // pula o restante da linha se encontrar um comentário
+                    if let Some('/') = self.seek_offset(1) {
+                        self.skip_line();
+                        continue;
+                    }
+
                     self.next_char();
                     return Token::Slash;
                 }
