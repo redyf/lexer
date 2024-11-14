@@ -69,7 +69,7 @@ impl<'a> Lexer<'a> {
             position: 0,
             current_char: None,
         };
-        lexer.current_char = lexer.next_char(); // Inicializa o primeiro caractere
+        lexer.next_char(); // Inicializa o primeiro caractere
         lexer
     }
 
@@ -77,16 +77,19 @@ impl<'a> Lexer<'a> {
         if self.position < self.input.len() {
             let ch = self.input[self.position..].chars().next().unwrap();
             self.position += ch.len_utf8();
-            Some(ch)
+
+            self.current_char = Some(ch);
+            self.current_char
         } else {
-            None
+            self.current_char = None;
+            self.current_char
         }
     }
 
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char {
             if ch.is_whitespace() {
-                self.current_char = self.next_char();
+                self.next_char();
             } else {
                 break;
             }
@@ -124,103 +127,103 @@ impl<'a> Lexer<'a> {
             match ch {
                 '0'..='9' => return Token::Number(self.integer()),
                 '#' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Hash;
                 }
                 '<' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LessThan;
                 }
                 '>' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::BiggerThan;
                 }
                 '.' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Dot;
                 }
                 '+' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Plus;
                 }
                 '-' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Minus;
                 }
                 '=' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Equal;
                 }
                 '*' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Multiply;
                 }
                 '/' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Slash;
                 }
                 '\\' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::BackwardSlash;
                 }
                 '|' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Pipe;
                 }
                 ':' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Colon;
                 }
                 ';' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Semicolon;
                 }
                 ',' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Comma;
                 }
                 '%' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Percent;
                 }
                 '\'' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::SingleQuotationMark;
                 }
                 '\"' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::DoubleQuotationMark;
                 }
                 '&' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Ampersand;
                 }
                 '!' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Exclamation;
                 }
                 '[' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LeftBracket;
                 }
                 ']' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::RightBracket;
                 }
                 '{' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LeftBrace;
                 }
                 '}' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::RightBrace;
                 }
                 '(' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LeftParen;
                 }
                 ')' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::RightParen;
                 }
                 _ => {
@@ -249,7 +252,7 @@ impl<'a> Lexer<'a> {
         let start_pos = self.position - 1; // Posição atual é o próximo caractere
         while let Some(ch) = self.current_char {
             if ch.is_digit(10) {
-                self.current_char = self.next_char();
+                self.next_char();
             } else {
                 break;
             }
@@ -262,7 +265,7 @@ impl<'a> Lexer<'a> {
         let start_pos = self.position - 1; // Posição atual é o próximo caractere
         while let Some(ch) = self.current_char {
             if ch.is_alphanumeric() || ch == '_' {
-                self.current_char = self.next_char();
+                self.next_char();
             } else {
                 break;
             }
