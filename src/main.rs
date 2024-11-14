@@ -94,6 +94,19 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn skip_multiline_comment(&mut self) -> () {
+        self.next_char();
+        while let Some(ch) = self.next_char() {
+            if ch == '*' {
+                if let Some('/') = self.seek_offset(1) {
+                    self.next_char();
+                    self.next_char();
+                    break;
+                }
+            }
+        }
+    }
+
     fn seek_offset(&self, offset: usize) -> Option<char> {
         self.input.chars().nth(self.position + offset - 1)
     }
@@ -170,9 +183,16 @@ impl<'a> Lexer<'a> {
                     return Token::Multiply;
                 }
                 '/' => {
+                    let nch = self.seek_offset(1);
+
                     // pula o restante da linha se encontrar um comentário
-                    if let Some('/') = self.seek_offset(1) {
+                    if let Some('/') = nch {
                         self.skip_line();
+                        continue;
+                    }
+
+                    if let Some('*') = nch {
+                        self.skip_multiline_comment();
                         continue;
                     }
 
