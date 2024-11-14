@@ -6,7 +6,6 @@ use std::path::Path;
 pub enum Token {
     Identifier(String),
     Number(i64),
-    Hash,
     LessThan,
     BiggerThan,
     Dot,
@@ -86,6 +85,15 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn skip_line(&mut self) -> () {
+        while let Some(ch) = self.current_char {
+            self.next_char();
+            if ch == '\n' {
+                break;
+            }
+        }
+    }
+
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char {
             if ch.is_whitespace() {
@@ -127,8 +135,7 @@ impl<'a> Lexer<'a> {
             match ch {
                 '0'..='9' => return Token::Number(self.integer()),
                 '#' => {
-                    self.next_char();
-                    return Token::Hash;
+                    self.skip_line();
                 }
                 '<' => {
                     self.next_char();
