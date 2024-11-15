@@ -301,9 +301,10 @@ impl Lexer {
                     let token = if let Some(keyword_token) = self.keyword(ident.as_str()) {
                         keyword_token
                     } else {
+                        self.symbol_table
+                            .add(ident.clone(), Token::Identifier(ident.clone()));
                         Token::Identifier(ident.clone())
                     };
-                    self.symbol_table.add(ident, token.clone());
                     return token;
                 }
 
