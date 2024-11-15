@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Identifier(String),
     Number(i64),
@@ -34,7 +35,19 @@ pub enum Token {
     RightParen,
     EOF, // End of File
 
-    // palavras-chaves
+    // Palavras Chave
+    Auto,
+    Const,
+    Default,
+    Extern,
+    Goto,
+    Register,
+    Signed,
+    Sizeof,
+    Static,
+    Union,
+    Unsigned,
+    Volatile,
     If,
     Else,
     Return,
@@ -57,18 +70,39 @@ pub enum Token {
     Void,
 }
 
-pub struct Lexer<'a> {
-    input: &'a str,
-    position: usize,
-    current_char: Option<char>,
+#[derive(Default)]
+pub struct SymbolTable {
+    symbols: HashMap<String, Token>,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+impl SymbolTable {
+    fn add(&mut self, identifier: String, token: Token) {
+        self.symbols.entry(identifier).or_insert(token);
+    }
+
+    fn display(&self) {
+        for (idx, (name, token)) in self.symbols.iter().enumerate() {
+            println!("ID, {:02} | {}: {:?}", idx + 1, name, token);
+        }
+    }
+}
+
+pub struct Lexer {
+    input: String,
+    position: usize,
+    current_char: Option<char>,
+    line_number: usize,
+    symbol_table: SymbolTable,
+}
+
+impl Lexer {
+    pub fn new(input: String) -> Self {
         let mut lexer = Lexer {
             input,
             position: 0,
             current_char: None,
+            line_number: 1,
+            symbol_table: SymbolTable::default(),
         };
         lexer.current_char = lexer.next_char(); // Inicializa o primeiro caractere
         lexer
@@ -87,6 +121,9 @@ impl<'a> Lexer<'a> {
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.current_char {
             if ch.is_whitespace() {
+                if ch == '\n' {
+                    self.line_number += 1;
+                }
                 self.current_char = self.next_char();
             } else {
                 break;
@@ -96,6 +133,18 @@ impl<'a> Lexer<'a> {
 
     fn keyword(&mut self, word: &str) -> Option<Token> {
         match word {
+            "auto" => Some(Token::Auto),
+            "const" => Some(Token::Const),
+            "default" => Some(Token::Default),
+            "extern" => Some(Token::Extern),
+            "goto" => Some(Token::Goto),
+            "register" => Some(Token::Register),
+            "signed" => Some(Token::Signed),
+            "sizeof" => Some(Token::Sizeof),
+            "static" => Some(Token::Static),
+            "union" => Some(Token::Union),
+            "unsigned" => Some(Token::Unsigned),
+            "volatile" => Some(Token::Volatile),
             "if" => Some(Token::If),
             "else" => Some(Token::Else),
             "return" => Some(Token::Return),
@@ -206,7 +255,7 @@ impl<'a> Lexer<'a> {
                     self.current_char = self.next_char();
                     return Token::SingleQuotationMark;
                 }
-                '\"' => {
+                '"' => {
                     self.current_char = self.next_char();
                     return Token::DoubleQuotationMark;
                 }
@@ -242,46 +291,45 @@ impl<'a> Lexer<'a> {
                     self.current_char = self.next_char();
                     return Token::RightParen;
                 }
-                '"' => {
-                    return Token::String(self.read_string());
+                _ if ch.is_whitespace() => {
+                    self.skip_whitespace();
+                    continue;
                 }
-                _ => {
-                    if ch.is_whitespace() {
-                        self.skip_whitespace();
-                        continue;
-                    } else if ch.is_alphabetic() || ch == '_' {
-                        // Identificadores e palavras-chave
-                        let ident = self.identifier();
 
-                        let kw = self.keyword(ident.as_str());
-                        match kw {
-                            Some(kw) => return kw,
-                            None => return Token::Identifier(ident),
-                        }
+                _ if ch.is_alphabetic() || ch == '_' => {
+                    let ident = self.identifier();
+                    let token = if let Some(keyword_token) = self.keyword(ident.as_str()) {
+                        keyword_token
                     } else {
-                        panic!("Unexpected character: {}", ch);
-                    }
+                        Token::Identifier(ident.clone())
+                    };
+                    self.symbol_table.add(ident, token.clone());
+                    return token;
                 }
+
+                _ => panic!("Unexpected character: {}", ch),
             }
         }
+
         Token::EOF // Retorna EOF quando não há mais caracteres
     }
 
     fn integer(&mut self) -> i64 {
-        let start_pos = self.position - 1; // Posição atual é o próximo caractere
-        while let Some(ch) = self.current_char {
+        let start_pos = self.position - 1;
+        while let Some(ch) = &self.current_char {
             if ch.is_digit(10) {
                 self.current_char = self.next_char();
             } else {
                 break;
             }
         }
+
         let num_str = &self.input[start_pos..self.position - 1];
         num_str.parse::<i64>().unwrap()
     }
 
     fn identifier(&mut self) -> String {
-        let start_pos = self.position - 1; // Posição atual é o próximo caractere
+        let start_pos = self.position - 1;
         while let Some(ch) = self.current_char {
             if ch.is_alphanumeric() || ch == '_' {
                 self.current_char = self.next_char();
@@ -289,6 +337,7 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
+
         String::from(&self.input[start_pos..self.position - 1])
     }
 }
@@ -302,16 +351,24 @@ fn main() {
     }
 
     let file_path = &args[1];
-    let path = Path::new(&file_path);
+
+    let path = Path::new(file_path);
+
     let input = fs::read_to_string(path).expect("Could not read file");
 
-    let mut lexer = Lexer::new(&input);
+    let mut lexer = Lexer::new(input); // Passa o ownership do String
 
     loop {
         let token = lexer.next_token();
+
         println!("{:?}", token);
+
         if token == Token::EOF {
             break;
         }
     }
+
+    // Display the symbol table
+    println!("\nSymbol Table:");
+    lexer.symbol_table.display();
 }
