@@ -7,6 +7,7 @@ use std::path::Path;
 pub enum Token {
     Identifier(String),
     Number(i64),
+    String(String),
     Hash,
     LessThan,
     BiggerThan,
@@ -168,6 +169,24 @@ impl Lexer {
         }
     }
 
+    fn read_string(&mut self) -> String {
+        self.current_char = self.next_char();
+        let start_pos = self.position - 1; // Posição atual é o próximo caractere
+        while let Some(ch) = self.current_char {
+            self.current_char = self.next_char();
+            if ch == '"' {
+                break;
+            }
+
+            // pula o próximo caractere caso seja uma sequência de escape
+            if ch == '\\' {
+                self.current_char = self.next_char();
+            }
+        }
+        let str_lit = &self.input[start_pos..self.position - 2];
+        String::from(str_lit)
+    }
+
     pub fn next_token(&mut self) -> Token {
         while let Some(ch) = self.current_char {
             match ch {
@@ -272,7 +291,6 @@ impl Lexer {
                     self.current_char = self.next_char();
                     return Token::RightParen;
                 }
-
                 _ if ch.is_whitespace() => {
                     self.skip_whitespace();
                     continue;
