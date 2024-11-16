@@ -8,7 +8,6 @@ pub enum Token {
     Identifier(String),
     Number(i64),
     String(String),
-    Hash,
     LessThan,
     BiggerThan,
     Dot,
@@ -104,7 +103,7 @@ impl Lexer {
             line_number: 1,
             symbol_table: SymbolTable::default(),
         };
-        lexer.current_char = lexer.next_char(); // Inicializa o primeiro caractere
+        lexer.next_char(); // Inicializa o primeiro caractere
         lexer
     }
 
@@ -112,10 +111,39 @@ impl Lexer {
         if self.position < self.input.len() {
             let ch = self.input[self.position..].chars().next().unwrap();
             self.position += ch.len_utf8();
-            Some(ch)
+
+            self.current_char = Some(ch);
+            self.current_char
         } else {
-            None
+            self.current_char = None;
+            self.current_char
         }
+    }
+
+    fn skip_line(&mut self) -> () {
+        while let Some(ch) = self.current_char {
+            self.next_char();
+            if ch == '\n' {
+                break;
+            }
+        }
+    }
+
+    fn skip_multiline_comment(&mut self) -> () {
+        self.next_char();
+        while let Some(ch) = self.next_char() {
+            if ch == '*' {
+                if let Some('/') = self.seek_offset(1) {
+                    self.next_char();
+                    self.next_char();
+                    break;
+                }
+            }
+        }
+    }
+
+    fn seek_offset(&self, offset: usize) -> Option<char> {
+        self.input.chars().nth(self.position + offset - 1)
     }
 
     fn skip_whitespace(&mut self) {
@@ -124,7 +152,7 @@ impl Lexer {
                 if ch == '\n' {
                     self.line_number += 1;
                 }
-                self.current_char = self.next_char();
+                self.next_char();
             } else {
                 break;
             }
@@ -192,103 +220,115 @@ impl Lexer {
             match ch {
                 '0'..='9' => return Token::Number(self.integer()),
                 '#' => {
-                    self.current_char = self.next_char();
-                    return Token::Hash;
+                    self.skip_line();
                 }
                 '<' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LessThan;
                 }
                 '>' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::BiggerThan;
                 }
                 '.' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Dot;
                 }
                 '+' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Plus;
                 }
                 '-' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Minus;
                 }
                 '=' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Equal;
                 }
                 '*' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Multiply;
                 }
                 '/' => {
-                    self.current_char = self.next_char();
+                    let nch = self.seek_offset(1);
+
+                    // pula o restante da linha se encontrar um comentário
+                    if let Some('/') = nch {
+                        self.skip_line();
+                        continue;
+                    }
+
+                    if let Some('*') = nch {
+                        self.skip_multiline_comment();
+                        continue;
+                    }
+
+                    self.next_char();
                     return Token::Slash;
                 }
                 '\\' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::BackwardSlash;
                 }
                 '|' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Pipe;
                 }
                 ':' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Colon;
                 }
                 ';' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Semicolon;
                 }
                 ',' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Comma;
                 }
                 '%' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Percent;
                 }
                 '\'' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::SingleQuotationMark;
                 }
                 '"' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::DoubleQuotationMark;
                 }
                 '&' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Ampersand;
                 }
                 '!' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::Exclamation;
                 }
                 '[' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LeftBracket;
                 }
                 ']' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::RightBracket;
                 }
                 '{' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LeftBrace;
                 }
                 '}' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::RightBrace;
                 }
                 '(' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::LeftParen;
                 }
                 ')' => {
-                    self.current_char = self.next_char();
+                    self.next_char();
                     return Token::RightParen;
                 }
                 _ if ch.is_whitespace() => {
@@ -319,7 +359,7 @@ impl Lexer {
         let start_pos = self.position - 1;
         while let Some(ch) = &self.current_char {
             if ch.is_digit(10) {
-                self.current_char = self.next_char();
+                self.next_char();
             } else {
                 break;
             }
@@ -333,7 +373,7 @@ impl Lexer {
         let start_pos = self.position - 1;
         while let Some(ch) = self.current_char {
             if ch.is_alphanumeric() || ch == '_' {
-                self.current_char = self.next_char();
+                self.next_char();
             } else {
                 break;
             }
