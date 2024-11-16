@@ -23,7 +23,6 @@ pub enum Token {
     Comma,
     Percent,
     SingleQuotationMark,
-    DoubleQuotationMark,
     Ampersand,
     Exclamation,
     LeftBracket,
@@ -296,8 +295,7 @@ impl Lexer {
                     return Token::SingleQuotationMark;
                 }
                 '"' => {
-                    self.next_char();
-                    return Token::DoubleQuotationMark;
+                    return Token::String(self.read_string());
                 }
                 '&' => {
                     self.next_char();
