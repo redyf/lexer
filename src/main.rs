@@ -122,7 +122,7 @@ impl Lexer {
         }
     }
 
-    fn skip_line(&mut self) -> () {
+    fn skip_line(&mut self) {
         while let Some(ch) = self.current_char {
             self.next_char();
             if ch == '\n' {
@@ -131,7 +131,7 @@ impl Lexer {
         }
     }
 
-    fn skip_multiline_comment(&mut self) -> () {
+    fn skip_multiline_comment(&mut self) {
         self.next_char();
         while let Some(ch) = self.next_char() {
             if ch == '*' {
@@ -371,7 +371,7 @@ impl Lexer {
     fn integer(&mut self) -> i64 {
         let start_pos = self.position - 1;
         while let Some(ch) = &self.current_char {
-            if ch.is_digit(10) {
+            if ch.is_ascii_digit() {
                 self.next_char();
             } else {
                 break;
