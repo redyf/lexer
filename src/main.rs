@@ -31,6 +31,9 @@ pub enum Token {
     RightBrace,
     LeftParen,
     RightParen,
+    Circumflex,
+    QuestionMark,
+    DollarSign,
     EOF, // End of File
 
     // Palavras Chave
@@ -328,6 +331,18 @@ impl Lexer {
                 ')' => {
                     self.next_char();
                     return Token::RightParen;
+                }
+                '^' => {
+                    self.next_char();
+                    return Token::Circumflex;
+                }
+                '?' => {
+                    self.next_char();
+                    return Token::QuestionMark;
+                }
+                '$' => {
+                    self.next_char();
+                    return Token::DollarSign;
                 }
                 _ if ch.is_whitespace() => {
                     self.skip_whitespace();
