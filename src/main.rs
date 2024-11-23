@@ -135,7 +135,7 @@ impl Lexer {
         self.next_char();
         while let Some(ch) = self.next_char() {
             if ch == '*' {
-                if let Some('/') = self.seek_offset(1) {
+                if let Some('/') = self.peek_next(1) {
                     self.next_char();
                     self.next_char();
                     break;
@@ -144,8 +144,8 @@ impl Lexer {
         }
     }
 
-    fn seek_offset(&self, offset: usize) -> Option<char> {
-        self.input.chars().nth(self.position + offset - 1)
+    fn peek_next(&self, ahead: usize) -> Option<char> {
+        self.input.chars().nth(self.position + ahead - 1)
     }
 
     fn skip_whitespace(&mut self) {
@@ -253,7 +253,7 @@ impl Lexer {
                     return Token::Multiply;
                 }
                 '/' => {
-                    let nch = self.seek_offset(1);
+                    let nch = self.peek_next(1);
 
                     // pula o restante da linha se encontrar um comentário
                     if let Some('/') = nch {
