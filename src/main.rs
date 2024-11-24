@@ -1,3 +1,5 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -5,70 +7,103 @@ use std::path::Path;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
-    Identifier(String),
-    Number(i64),
-    String(String),
-    LessThan,
-    BiggerThan,
-    Dot,
-    Plus,
-    Minus,
-    Multiply,
-    Slash,
-    BackwardSlash,
-    Pipe,
-    Equal,
-    Colon,
-    Semicolon,
-    Comma,
-    Percent,
-    SingleQuotationMark,
-    Ampersand,
-    Exclamation,
-    LeftBracket,
-    RightBracket,
-    LeftBrace,
-    RightBrace,
-    LeftParen,
-    RightParen,
-    Circumflex,
-    QuestionMark,
-    DollarSign,
-    EOF, // End of File
-
-    // Palavras Chave
+    // Keywords
     Auto,
+    Break,
+    Case,
+    Char,
     Const,
+    Continue,
     Default,
+    Do,
+    Double,
+    Else,
+    Enum,
     Extern,
+    Float,
+    For,
     Goto,
+    If,
+    Int,
+    Long,
     Register,
+    Return,
+    Short,
     Signed,
     Sizeof,
     Static,
+    Struct,
+    Switch,
+    Typedef,
     Union,
     Unsigned,
-    Volatile,
-    If,
-    Else,
-    Return,
-    Do,
-    While,
-    For,
-    Switch,
-    Case,
-    Break,
-    Continue,
-    Enum,
-    Struct,
-    Typedef,
-    Int,
-    Long,
-    Short,
-    Char,
-    Float,
-    Double,
     Void,
+    Volatile,
+    While,
+
+    // Identifiers and literals
+    Identifier(String),
+    Number(i64),
+
+    // Operators and punctuation
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Assign,
+    PlusAssign,
+    MinusAssign,
+    StarAssign,
+    SlashAssign,
+    PercentAssign,
+    Increment,
+    Decrement,
+    Equals,
+    NotEquals,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    LogicalAnd,
+    LogicalOr,
+    LogicalNot,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    BitwiseNot,
+    LeftShift,
+    RightShift,
+
+    // Punctuation
+    Semicolon,
+    Comma,
+    Dot,
+    Arrow,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    Question,
+    Colon,
+
+    // Special tokens
+    EOF,
+    Error(String),
+}
+
+lazy_static! {
+    static ref IDENTIFIER_REGEX: Regex = Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_]*").unwrap();
+    static ref NUMBER_REGEX: Regex =
+        Regex::new(r"^(?:0[xX][0-9a-fA-F]+|0[0-7]*|[1-9][0-9]*)").unwrap();
+    static ref OPERATOR_REGEX: Regex = Regex::new(
+        r"^(?:->|>=|<=|==|!=|\+=|-=|\*=|/=|%=|>>|<<|\+\+|--|&&|\|\||[+\-*/%=<>&|^!~?:;,\.\[\]{}()])"
+    )
+    .unwrap();
+    static ref WHITESPACE_REGEX: Regex = Regex::new(r"^[\s\t\n\r]+").unwrap();
+    static ref PREPROCESSOR_LINE_REGEX: Regex = Regex::new(r"^#[^\n]*\n?").unwrap();
 }
 
 #[derive(Default)]
@@ -77,13 +112,19 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
-    fn add(&mut self, identifier: String, token: Token) {
+    pub fn new() -> Self {
+        SymbolTable {
+            symbols: HashMap::new(),
+        }
+    }
+
+    pub fn add(&mut self, identifier: String, token: Token) {
         self.symbols.entry(identifier).or_insert(token);
     }
 
-    fn display(&self) {
+    pub fn display(&self) {
         for (idx, (name, token)) in self.symbols.iter().enumerate() {
-            println!("ID, {:02} | {}: {:?}", idx + 1, name, token);
+            println!("ID: {:02} | {}: {:?}", idx + 1, name, token);
         }
     }
 }
@@ -91,308 +132,187 @@ impl SymbolTable {
 pub struct Lexer {
     input: String,
     position: usize,
-    current_char: Option<char>,
     line_number: usize,
     symbol_table: SymbolTable,
 }
 
 impl Lexer {
     pub fn new(input: String) -> Self {
-        let mut lexer = Lexer {
+        Lexer {
             input,
             position: 0,
-            current_char: None,
             line_number: 1,
-            symbol_table: SymbolTable::default(),
-        };
-        lexer.next_char(); // Inicializa o primeiro caractere
-        lexer
-    }
-
-    fn next_char(&mut self) -> Option<char> {
-        if self.position < self.input.len() {
-            let ch = self.input[self.position..].chars().next().unwrap();
-            self.position += ch.len_utf8();
-
-            self.current_char = Some(ch);
-            self.current_char
-        } else {
-            self.current_char = None;
-            self.current_char
+            symbol_table: SymbolTable::new(),
         }
     }
 
-    fn skip_line(&mut self) {
-        while let Some(ch) = self.current_char {
-            self.next_char();
-            if ch == '\n' {
-                break;
-            }
-        }
-    }
+    pub fn next_token(&mut self) -> Token {
+        self.skip_whitespace();
+        self.skip_preprocessor_line();
 
-    fn skip_multiline_comment(&mut self) {
-        self.next_char();
-        while let Some(ch) = self.next_char() {
-            if ch == '*' {
-                if let Some('/') = self.peek_next(1) {
-                    self.next_char();
-                    self.next_char();
-                    break;
+        let remaining = &self.input[self.position..];
+        if remaining.is_empty() {
+            return Token::EOF;
+        }
+
+        // Check for preprocessor line at the current position
+        if remaining.starts_with('#') {
+            self.skip_preprocessor_line();
+            return self.next_token();
+        }
+
+        // Match numbers (including hex and octal)
+        if let Some(mat) = NUMBER_REGEX.find(remaining) {
+            let number_str = &remaining[..mat.end()];
+            self.position += mat.end();
+
+            // Parse hex numbers
+            if number_str.starts_with("0x") || number_str.starts_with("0X") {
+                if let Ok(num) = i64::from_str_radix(&number_str[2..], 16) {
+                    return Token::Number(num);
                 }
             }
-        }
-    }
-
-    fn peek_next(&self, ahead: usize) -> Option<char> {
-        self.input.chars().nth(self.position + ahead - 1)
-    }
-
-    fn skip_whitespace(&mut self) {
-        while let Some(ch) = self.current_char {
-            if ch.is_whitespace() {
-                if ch == '\n' {
-                    self.line_number += 1;
+            // Parse octal numbers
+            else if number_str.starts_with('0') && number_str.len() > 1 {
+                if let Ok(num) = i64::from_str_radix(&number_str[1..], 8) {
+                    return Token::Number(num);
                 }
-                self.next_char();
+            }
+            // Parse decimal numbers
+            else if let Ok(num) = number_str.parse() {
+                return Token::Number(num);
+            }
+            Token::Error(format!("Invalid number format: {}", number_str))
+        }
+        // Match identifiers and keywords
+        else if let Some(mat) = IDENTIFIER_REGEX.find(remaining) {
+            let word = &remaining[..mat.end()];
+            self.position += mat.end();
+
+            if let Some(keyword_token) = self.match_keyword(word) {
+                keyword_token
             } else {
-                break;
+                let ident = word.to_string();
+                self.symbol_table
+                    .add(ident.clone(), Token::Identifier(ident.clone()));
+                Token::Identifier(ident)
             }
+        }
+        // Match operators and punctuation
+        else if let Some(mat) = OPERATOR_REGEX.find(remaining) {
+            let op = &remaining[..mat.end()];
+            self.position += mat.end();
+            self.match_operator(op)
+        }
+        // Handle unrecognized characters
+        else {
+            let ch = remaining.chars().next().unwrap();
+            self.position += 1;
+            Token::Error(format!("Unexpected character: {}", ch))
         }
     }
 
-    fn keyword(&mut self, word: &str) -> Option<Token> {
+    fn skip_preprocessor_line(&mut self) {
+        while let Some(mat) = PREPROCESSOR_LINE_REGEX.find(&self.input[self.position..]) {
+            let preprocessor_line = &self.input[self.position..][..mat.end()];
+            // Count newlines in the preprocessor directive
+            self.line_number += preprocessor_line.chars().filter(|&c| c == '\n').count();
+            self.position += mat.end();
+            // Skip any following whitespace
+            self.skip_whitespace();
+        }
+    }
+
+    fn match_keyword(&self, word: &str) -> Option<Token> {
         match word {
             "auto" => Some(Token::Auto),
+            "break" => Some(Token::Break),
+            "case" => Some(Token::Case),
+            "char" => Some(Token::Char),
             "const" => Some(Token::Const),
+            "continue" => Some(Token::Continue),
             "default" => Some(Token::Default),
+            "do" => Some(Token::Do),
+            "double" => Some(Token::Double),
+            "else" => Some(Token::Else),
+            "enum" => Some(Token::Enum),
             "extern" => Some(Token::Extern),
+            "float" => Some(Token::Float),
+            "for" => Some(Token::For),
             "goto" => Some(Token::Goto),
+            "if" => Some(Token::If),
+            "int" => Some(Token::Int),
+            "long" => Some(Token::Long),
             "register" => Some(Token::Register),
+            "return" => Some(Token::Return),
+            "short" => Some(Token::Short),
             "signed" => Some(Token::Signed),
             "sizeof" => Some(Token::Sizeof),
             "static" => Some(Token::Static),
+            "struct" => Some(Token::Struct),
+            "switch" => Some(Token::Switch),
+            "typedef" => Some(Token::Typedef),
             "union" => Some(Token::Union),
             "unsigned" => Some(Token::Unsigned),
-            "volatile" => Some(Token::Volatile),
-            "if" => Some(Token::If),
-            "else" => Some(Token::Else),
-            "return" => Some(Token::Return),
-            "do" => Some(Token::Do),
-            "while" => Some(Token::While),
-            "for" => Some(Token::For),
-            "switch" => Some(Token::Switch),
-            "case" => Some(Token::Case),
-            "break" => Some(Token::Break),
-            "continue" => Some(Token::Continue),
-            "enum" => Some(Token::Enum),
-            "struct" => Some(Token::Struct),
-            "typedef" => Some(Token::Typedef),
-            "int" => Some(Token::Int),
-            "long" => Some(Token::Long),
-            "short" => Some(Token::Short),
-            "char" => Some(Token::Char),
-            "float" => Some(Token::Float),
-            "double" => Some(Token::Double),
             "void" => Some(Token::Void),
+            "volatile" => Some(Token::Volatile),
+            "while" => Some(Token::While),
             _ => None,
         }
     }
 
-    fn read_string(&mut self) -> String {
-        self.current_char = self.next_char();
-        let start_pos = self.position - 1; // Posição atual é o próximo caractere
-        while let Some(ch) = self.current_char {
-            self.current_char = self.next_char();
-            if ch == '"' {
-                break;
-            }
-
-            // pula o próximo caractere caso seja uma sequência de escape
-            if ch == '\\' {
-                self.current_char = self.next_char();
-            }
+    fn match_operator(&self, op: &str) -> Token {
+        match op {
+            "+" => Token::Plus,
+            "-" => Token::Minus,
+            "*" => Token::Star,
+            "/" => Token::Slash,
+            "%" => Token::Percent,
+            "=" => Token::Assign,
+            "+=" => Token::PlusAssign,
+            "-=" => Token::MinusAssign,
+            "*=" => Token::StarAssign,
+            "/=" => Token::SlashAssign,
+            "%=" => Token::PercentAssign,
+            "++" => Token::Increment,
+            "--" => Token::Decrement,
+            "==" => Token::Equals,
+            "!=" => Token::NotEquals,
+            "<" => Token::Less,
+            ">" => Token::Greater,
+            "<=" => Token::LessEqual,
+            ">=" => Token::GreaterEqual,
+            "&&" => Token::LogicalAnd,
+            "||" => Token::LogicalOr,
+            "!" => Token::LogicalNot,
+            "&" => Token::BitwiseAnd,
+            "|" => Token::BitwiseOr,
+            "^" => Token::BitwiseXor,
+            "~" => Token::BitwiseNot,
+            "<<" => Token::LeftShift,
+            ">>" => Token::RightShift,
+            ";" => Token::Semicolon,
+            "," => Token::Comma,
+            "." => Token::Dot,
+            "->" => Token::Arrow,
+            "(" => Token::LeftParen,
+            ")" => Token::RightParen,
+            "{" => Token::LeftBrace,
+            "}" => Token::RightBrace,
+            "[" => Token::LeftBracket,
+            "]" => Token::RightBracket,
+            "?" => Token::Question,
+            ":" => Token::Colon,
+            _ => Token::Error(format!("Unknown operator: {}", op)),
         }
-        let str_lit = &self.input[start_pos..self.position - 2];
-        String::from(str_lit)
     }
 
-    pub fn next_token(&mut self) -> Token {
-        while let Some(ch) = self.current_char {
-            match ch {
-                '0'..='9' => return Token::Number(self.integer()),
-                '#' => {
-                    self.skip_line();
-                }
-                '<' => {
-                    self.next_char();
-                    return Token::LessThan;
-                }
-                '>' => {
-                    self.next_char();
-                    return Token::BiggerThan;
-                }
-                '.' => {
-                    self.next_char();
-                    return Token::Dot;
-                }
-                '+' => {
-                    self.next_char();
-                    return Token::Plus;
-                }
-                '-' => {
-                    self.next_char();
-                    return Token::Minus;
-                }
-                '=' => {
-                    self.next_char();
-                    return Token::Equal;
-                }
-                '*' => {
-                    self.next_char();
-                    return Token::Multiply;
-                }
-                '/' => {
-                    let nch = self.peek_next(1);
-
-                    // pula o restante da linha se encontrar um comentário
-                    if let Some('/') = nch {
-                        self.skip_line();
-                        continue;
-                    }
-
-                    if let Some('*') = nch {
-                        self.skip_multiline_comment();
-                        continue;
-                    }
-
-                    self.next_char();
-                    return Token::Slash;
-                }
-                '\\' => {
-                    self.next_char();
-                    return Token::BackwardSlash;
-                }
-                '|' => {
-                    self.next_char();
-                    return Token::Pipe;
-                }
-                ':' => {
-                    self.next_char();
-                    return Token::Colon;
-                }
-                ';' => {
-                    self.next_char();
-                    return Token::Semicolon;
-                }
-                ',' => {
-                    self.next_char();
-                    return Token::Comma;
-                }
-                '%' => {
-                    self.next_char();
-                    return Token::Percent;
-                }
-                '\'' => {
-                    self.next_char();
-                    return Token::SingleQuotationMark;
-                }
-                '"' => {
-                    return Token::String(self.read_string());
-                }
-                '&' => {
-                    self.next_char();
-                    return Token::Ampersand;
-                }
-                '!' => {
-                    self.next_char();
-                    return Token::Exclamation;
-                }
-                '[' => {
-                    self.next_char();
-                    return Token::LeftBracket;
-                }
-                ']' => {
-                    self.next_char();
-                    return Token::RightBracket;
-                }
-                '{' => {
-                    self.next_char();
-                    return Token::LeftBrace;
-                }
-                '}' => {
-                    self.next_char();
-                    return Token::RightBrace;
-                }
-                '(' => {
-                    self.next_char();
-                    return Token::LeftParen;
-                }
-                ')' => {
-                    self.next_char();
-                    return Token::RightParen;
-                }
-                '^' => {
-                    self.next_char();
-                    return Token::Circumflex;
-                }
-                '?' => {
-                    self.next_char();
-                    return Token::QuestionMark;
-                }
-                '$' => {
-                    self.next_char();
-                    return Token::DollarSign;
-                }
-                _ if ch.is_whitespace() => {
-                    self.skip_whitespace();
-                    continue;
-                }
-
-                _ if ch.is_alphabetic() || ch == '_' => {
-                    let ident = self.identifier();
-                    let token = if let Some(keyword_token) = self.keyword(ident.as_str()) {
-                        keyword_token
-                    } else {
-                        self.symbol_table
-                            .add(ident.clone(), Token::Identifier(ident.clone()));
-                        Token::Identifier(ident.clone())
-                    };
-                    return token;
-                }
-
-                _ => panic!("Unexpected character: {}", ch),
-            }
+    fn skip_whitespace(&mut self) {
+        while let Some(mat) = WHITESPACE_REGEX.find(&self.input[self.position..]) {
+            let whitespace = &self.input[self.position..][..mat.end()];
+            self.line_number += whitespace.chars().filter(|&c| c == '\n').count();
+            self.position += mat.end();
         }
-
-        Token::EOF // Retorna EOF quando não há mais caracteres
-    }
-
-    fn integer(&mut self) -> i64 {
-        let start_pos = self.position - 1;
-        while let Some(ch) = &self.current_char {
-            if ch.is_ascii_digit() {
-                self.next_char();
-            } else {
-                break;
-            }
-        }
-
-        let num_str = &self.input[start_pos..self.position - 1];
-        num_str.parse::<i64>().unwrap()
-    }
-
-    fn identifier(&mut self) -> String {
-        let start_pos = self.position - 1;
-        while let Some(ch) = self.current_char {
-            if ch.is_alphanumeric() || ch == '_' {
-                self.next_char();
-            } else {
-                break;
-            }
-        }
-
-        String::from(&self.input[start_pos..self.position - 1])
     }
 }
 
@@ -405,24 +325,24 @@ fn main() {
     }
 
     let file_path = &args[1];
-
     let path = Path::new(file_path);
-
     let input = fs::read_to_string(path).expect("Could not read file");
 
-    let mut lexer = Lexer::new(input); // Passa o ownership do String
+    let mut lexer = Lexer::new(input);
+
+    println!("Tokenizing file: {}", file_path);
+    println!("-------------------");
 
     loop {
         let token = lexer.next_token();
-
-        println!("{:?}", token);
+        println!("Line {}: {:?}", lexer.line_number, token);
 
         if token == Token::EOF {
             break;
         }
     }
 
-    // Display the symbol table
     println!("\nSymbol Table:");
+    println!("------------");
     lexer.symbol_table.display();
 }
