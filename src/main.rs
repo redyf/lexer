@@ -44,6 +44,7 @@ pub enum Token {
     // Identifiers and literals
     Identifier(String),
     Number(i64),
+    String(String),
 
     // Operators and punctuation
     Plus,
@@ -104,6 +105,7 @@ lazy_static! {
     .unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"^[\s\t\n\r]+").unwrap();
     static ref PREPROCESSOR_LINE_REGEX: Regex = Regex::new(r"^#[^\n]*\n?").unwrap();
+    static ref STRING_LITERAL_REGEX: Regex = Regex::new(r#"^"(.*)[^\\]""#).unwrap();
 }
 
 #[derive(Default)]
@@ -203,6 +205,10 @@ impl Lexer {
             let op = &remaining[..mat.end()];
             self.position += mat.end();
             self.match_operator(op)
+        } else if let Some(mat) = STRING_LITERAL_REGEX.find(remaining) {
+            let lit_str = &remaining[1..mat.end() - 1];
+            self.position += mat.end();
+            Token::String(lit_str.to_string())
         }
         // Handle unrecognized characters
         else {
