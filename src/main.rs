@@ -169,6 +169,11 @@ impl Lexer {
             return self.next_token(); // Restart tokenization after skipping
         }
 
+        if remaining.starts_with("//") {
+            self.skip_until("//", "\n");
+            return self.next_token();
+        }
+
         // Match numbers (including hex and octal)
         if let Some(mat) = NUMBER_REGEX.find(remaining) {
             let number_str = &remaining[..mat.end()];
