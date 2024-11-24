@@ -161,6 +161,12 @@ impl Lexer {
             return self.next_token();
         }
 
+        // Check for multiline comments
+        if remaining.starts_with("/*") {
+            self.skip_pattern_until("/*", "*/");
+            return self.next_token(); // Restart tokenization after skipping
+        }
+
         // Match numbers (including hex and octal)
         if let Some(mat) = NUMBER_REGEX.find(remaining) {
             let number_str = &remaining[..mat.end()];
@@ -209,6 +215,32 @@ impl Lexer {
             let ch = remaining.chars().next().unwrap();
             self.position += 1;
             Token::Error(format!("Unexpected character: {}", ch))
+        }
+    }
+
+    fn skip_pattern_until(&mut self, start: &str, end: &str) {
+        if self.input[self.position..].starts_with(start) {
+            self.position += start.len(); // Skip the starting pattern
+
+            while self.position < self.input.len() {
+                let ch = self.input[self.position..].chars().next().unwrap();
+                self.position += 1;
+
+                if ch == '\n' {
+                    self.line_number += 1;
+                }
+
+                if self.input[self.position..].starts_with(end) {
+                    self.position += end.len(); // Skip the ending pattern
+                    return;
+                }
+            }
+
+            // If we reach here, the end pattern was not found
+            println!(
+                "Error: Unterminated pattern '{}' starting at line {}",
+                start, self.line_number
+            );
         }
     }
 
