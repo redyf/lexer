@@ -163,7 +163,7 @@ impl Lexer {
 
         // Check for multiline comments
         if remaining.starts_with("/*") {
-            self.skip_pattern_until("/*", "*/");
+            self.skip_until("/*", "*/");
             return self.next_token(); // Restart tokenization after skipping
         }
 
@@ -218,7 +218,7 @@ impl Lexer {
         }
     }
 
-    fn skip_pattern_until(&mut self, start: &str, end: &str) {
+    fn skip_until(&mut self, start: &str, end: &str) {
         if self.input[self.position..].starts_with(start) {
             self.position += start.len(); // Skip the starting pattern
 
