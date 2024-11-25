@@ -120,11 +120,9 @@ impl SymbolTable {
     }
 
     pub fn add(&mut self, identifier: &str) -> usize {
-        if self.symbols.contains(&identifier.to_string()) {
-            for (i, name) in self.symbols.iter().enumerate() {
-                if name == &identifier {
-                    return i;
-                }
+        for (i, name) in self.symbols.iter().enumerate() {
+            if name == &identifier {
+                return i;
             }
         }
         self.symbols.push(identifier.to_string());
