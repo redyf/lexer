@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -42,7 +41,7 @@ pub enum Token {
     While,
 
     // Identifiers and literals
-    Identifier(String),
+    Identifier(usize),
     Number(i64),
     String(String),
 
@@ -110,23 +109,31 @@ lazy_static! {
 
 #[derive(Default)]
 pub struct SymbolTable {
-    symbols: HashMap<String, Token>,
+    symbols: Vec<String>,
 }
 
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable {
-            symbols: HashMap::new(),
+            symbols: Vec::new(),
         }
     }
 
-    pub fn add(&mut self, identifier: String, token: Token) {
-        self.symbols.entry(identifier).or_insert(token);
+    pub fn add(&mut self, identifier: &str) -> usize {
+        if self.symbols.contains(&identifier.to_string()) {
+            for (i, name) in self.symbols.iter().enumerate() {
+                if name == &identifier {
+                    return i;
+                }
+            }
+        }
+        self.symbols.push(identifier.to_string());
+        self.symbols.len()
     }
 
     pub fn display(&self) {
-        for (idx, (name, token)) in self.symbols.iter().enumerate() {
-            println!("ID: {:02} | {}: {:?}", idx + 1, name, token);
+        for (i, name) in self.symbols.iter().enumerate() {
+            println!("ID: {:02} | {}", i + 1, name);
         }
     }
 }
@@ -205,10 +212,8 @@ impl Lexer {
             if let Some(keyword_token) = self.match_keyword(word) {
                 keyword_token
             } else {
-                let ident = word.to_string();
-                self.symbol_table
-                    .add(ident.clone(), Token::Identifier(ident.clone()));
-                Token::Identifier(ident)
+                let id = self.symbol_table.add(word);
+                Token::Identifier(id)
             }
         }
         // Match operators and punctuation
